@@ -43,7 +43,7 @@
       background: #1e293b; color: #cbd5e1; transition: 0.15s;
     }
     .tab-btn.active { background: #2563eb; color: #fff; }
-    .container { max-width: 780px; margin: 24px auto; padding: 0 16px; }
+    .container { max-width: 820px; margin: 24px auto; padding: 0 16px; }
     .status-bar {
       display: flex; align-items: center; justify-content: space-between;
       background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
@@ -65,9 +65,10 @@
     .card .sub { font-size: 13px; color: #64748b; margin-bottom: 18px; }
     .form-group { margin-bottom: 14px; }
     label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #334155; }
-    input[type="text"], input[type="number"], input[type="tel"], input[type="password"] {
+    input[type="text"], input[type="number"], input[type="tel"], input[type="password"], input[type="date"] {
       width: 100%; padding: 11px 13px; border: 1.5px solid #cbd5e1;
       border-radius: 10px; font-size: 15px; outline: none; transition: 0.15s;
+      background: #fff;
     }
     input:focus { border-color: #2563eb; }
     .radio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -127,7 +128,42 @@
     .btn-wa:hover { background: #15803d; }
     .btn-clear { background: #e2e8f0; color: #1e293b; }
     .btn-clear:hover { background: #cbd5e1; }
+    .btn-print { background: #0f172a; color: #fff; }
+    .btn-print:hover { background: #1e293b; }
+    .report-toolbar {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: 10px; margin-bottom: 14px;
+    }
+    .report-stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+    }
+    .stat-box {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;
+    }
+    .stat-box span { display: block; font-size: 12px; color: #64748b; font-weight: 600; }
+    .stat-box strong { font-size: 20px; color: #0f172a; }
+    .report-table-wrap { overflow-x: auto; margin-top: 8px; }
+    table.report-table {
+      width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px;
+    }
+    table.report-table th, table.report-table td {
+      border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;
+    }
+    table.report-table th { background: #f8fafc; font-weight: 700; color: #334155; }
     .hidden { display: none !important; }
+
+    @media print {
+      body { background: #fff; padding-bottom: 0; }
+      .topbar, .status-bar, .no-print, #studentView, #staffLoginView, .active-panel-card, .history-panel-card {
+        display: none !important;
+      }
+      #staffPanelView { display: block !important; }
+      #dailyReportCard {
+        display: block !important;
+        border: none; box-shadow: none; padding: 0; margin: 0;
+      }
+      .container { max-width: 100%; margin: 0; padding: 0; }
+    }
   </style>
 </head>
 <body>
@@ -161,8 +197,8 @@
 
       <form id="registerForm" onsubmit="handleRegister(event)">
         <div class="form-group">
-          <label for="sepetNo">Sepet Numarası</label>
-          <input type="number" id="sepetNo" min="1" max="260" placeholder="Örn: 12" required oninput="checkBasketConflict()" />
+          <label for="sepetNo">Sepet Numarası (1 - 240)</label>
+          <input type="number" id="sepetNo" min="1" max="240" placeholder="Örn: 12" required oninput="checkBasketConflict()" />
           <div id="conflictHint" style="font-size:12px; color:#b91c1c; font-weight:600; margin-top:4px;"></div>
         </div>
 
@@ -209,7 +245,7 @@
 
     <!-- GÖREVLİ PANELİ -->
     <div id="staffPanelView" class="hidden">
-      <div class="card">
+      <div class="card active-panel-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
           <div>
             <h2>Aktif Sepet Listesi</h2>
@@ -220,7 +256,34 @@
         <div id="activeBasketsContainer"></div>
       </div>
 
-      <div class="card">
+      <!-- GÜNLÜK LİSTE / İDARE RAPORU -->
+      <div id="dailyReportCard" class="card">
+        <div class="report-toolbar">
+          <div>
+            <h2>Günlük Çamaşır Listesi (İdare Raporu)</h2>
+            <p class="sub" style="margin-bottom:0;">Seçilen günde alınan ve teslim edilen sepetlerin dökümü.</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <input type="date" id="reportDate" onchange="renderDailyReport()" style="width:auto; padding:7px 10px; font-size:13px;" />
+            <button type="button" class="btn-sm btn-print no-print" onclick="window.print()">Yazdır / PDF</button>
+          </div>
+        </div>
+
+        <div class="report-stats">
+          <div class="stat-box">
+            <span>Seçili Gün Alınan</span>
+            <strong id="statReceivedCount">0</strong>
+          </div>
+          <div class="stat-box">
+            <span>Seçili Gün Teslim Edilen</span>
+            <strong id="statDeliveredCount">0</strong>
+          </div>
+        </div>
+
+        <div id="dailyReportContent" class="report-table-wrap"></div>
+      </div>
+
+      <div class="card history-panel-card">
         <h2>Son Teslim Edilenler</h2>
         <p class="sub">Boşaltılan ve sahibine teslim edilen son 15 sepet kaydı.</p>
         <div id="historyContainer"></div>
@@ -239,6 +302,33 @@
     let selectedProcess = "Yıkama + Kurutma";
     let allRecords = [];
     let isStaffLoggedIn = sessionStorage.getItem("staff_auth") === "true";
+
+    function getTodayLocalDateStr() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function toLocalDateStr(isoStr) {
+      if (!isoStr) return "";
+      const dt = new Date(isoStr);
+      if (isNaN(dt.getTime())) return "";
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      const d = String(dt.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatTimeOnly(isoStr) {
+      if (!isoStr) return "-";
+      const dt = new Date(isoStr);
+      if (isNaN(dt.getTime())) return "-";
+      return dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    document.getElementById("reportDate").value = getTodayLocalDateStr();
 
     function selectProcess(val) {
       selectedProcess = val;
@@ -259,6 +349,7 @@
         if (isStaffLoggedIn) {
           document.getElementById("staffLoginView").classList.add("hidden");
           document.getElementById("staffPanelView").classList.remove("hidden");
+          renderDailyReport();
         } else {
           document.getElementById("staffLoginView").classList.remove("hidden");
           document.getElementById("staffPanelView").classList.add("hidden");
@@ -336,7 +427,7 @@
         .from("sepetler")
         .select("*")
         .order("kayit_saati", { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (error) {
         console.error("Veri çekme hatası:", error);
@@ -345,6 +436,79 @@
       }
       allRecords = data || [];
       renderAll();
+    }
+
+    function renderDailyReport() {
+      const dateInput = document.getElementById("reportDate");
+      if (!dateInput.value) dateInput.value = getTodayLocalDateStr();
+      const selectedDate = dateInput.value;
+
+      const receivedList = allRecords
+        .filter(r => toLocalDateStr(r.kayit_saati) === selectedDate)
+        .sort((a, b) => new Date(a.kayit_saati) - new Date(b.kayit_saati));
+
+      const deliveredList = allRecords
+        .filter(r => r.durum === "teslim_edildi" && toLocalDateStr(r.teslim_saati) === selectedDate)
+        .sort((a, b) => new Date(a.teslim_saati) - new Date(b.teslim_saati));
+
+      document.getElementById("statReceivedCount").textContent = receivedList.length;
+      document.getElementById("statDeliveredCount").textContent = deliveredList.length;
+
+      const receivedRows = receivedList.length === 0
+        ? `<tr><td colspan="6" style="text-align:center; color:#64748b;">Bu tarihte alınan sepet kaydı yok.</td></tr>`
+        : receivedList.map(r => `
+            <tr>
+              <td><strong>#${r.sepet_no}</strong></td>
+              <td>${escapeHtml(r.ad_soyad)}</td>
+              <td>${escapeHtml(r.telefon)}</td>
+              <td>${escapeHtml(r.islem_turu)}</td>
+              <td>${formatTimeOnly(r.kayit_saati)}</td>
+              <td>${r.durum === "teslim_edildi" ? "Teslim Edildi" : (r.durum === "haber_verildi" ? "Haber Verildi" : "İşlemde")}</td>
+            </tr>
+          `).join("");
+
+      const deliveredRows = deliveredList.length === 0
+        ? `<tr><td colspan="5" style="text-align:center; color:#64748b;">Bu tarihte teslim edilen sepet kaydı yok.</td></tr>`
+        : deliveredList.map(r => `
+            <tr>
+              <td><strong>#${r.sepet_no}</strong></td>
+              <td>${escapeHtml(r.ad_soyad)}</td>
+              <td>${escapeHtml(r.islem_turu)}</td>
+              <td>${formatTimeOnly(r.kayit_saati)}</td>
+              <td>${formatTimeOnly(r.teslim_saati)}</td>
+            </tr>
+          `).join("");
+
+      document.getElementById("dailyReportContent").innerHTML = `
+        <h3 style="font-size:14px; margin-bottom:6px; color:#1e293b;">Alınan Sepetler (${selectedDate})</h3>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Sepet</th>
+              <th>Ad Soyad / Oda</th>
+              <th>Telefon</th>
+              <th>İşlem</th>
+              <th>Alış Saati</th>
+              <th>Durum</th>
+            </tr>
+          </thead>
+          <tbody>${receivedRows}</tbody>
+        </table>
+
+        <h3 style="font-size:14px; margin-bottom:6px; color:#1e293b;">Teslim Edilen Sepetler (${selectedDate})</h3>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Sepet</th>
+              <th>Ad Soyad / Oda</th>
+              <th>İşlem</th>
+              <th>Alış Saati</th>
+              <th>Teslim Saati</th>
+            </tr>
+          </thead>
+          <tbody>${deliveredRows}</tbody>
+        </table>
+      `;
     }
 
     function renderAll() {
@@ -404,6 +568,10 @@
             <span style="color:#64748b;">Teslim: ${timeAgo(item.teslim_saati)}</span>
           </div>
         `).join("");
+      }
+
+      if (isStaffLoggedIn) {
+        renderDailyReport();
       }
     }
 
