@@ -340,6 +340,7 @@
 
       if (error) {
         console.error("Veri çekme hatası:", error);
+        document.getElementById("activeCountText").textContent = "Bağlantı hatası";
         return;
       }
       allRecords = data || [];
@@ -352,7 +353,6 @@
 
       document.getElementById("activeCountText").textContent = active.length + " Aktif Sepet";
 
-      // Öğrenci ekranındaki dolu sepet rozetleri
       const busyDiv = document.getElementById("busyBasketsList");
       if (active.length === 0) {
         busyDiv.innerHTML = '<span style="font-size:12px; color:#15803d;">Şu an dolu sepet yok, tüm sepetler boş.</span>';
@@ -362,7 +362,6 @@
 
       checkBasketConflict();
 
-      // Görevli aktif listesi
       const activeContainer = document.getElementById("activeBasketsContainer");
       if (active.length === 0) {
         activeContainer.innerHTML = '<p style="font-size:14px; color:#64748b; text-align:center; padding:20px 0;">Şu an işlemde olan aktif sepet bulunmuyor.</p>';
@@ -377,4 +376,112 @@
                   <h3>${escapeHtml(item.ad_soyad)}</h3>
                   <p>${escapeHtml(item.telefon)} • <strong>${escapeHtml(item.islem_turu)}</strong></p>
                   <p style="font-size:12px; color:#64748b;">Kayıt: ${timeAgo(item.kayit_saati)}</p>
-                  <span class="tag ${isNotified ? "tag-done"
+                  <span class="tag ${isNotified ? "tag-done" : "tag-wait"}">
+                    ${isNotified ? "✓ WhatsApp Bildirimi Gönderildi" : "⏳ İşlemde / Bekliyor"}
+                  </span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn-sm btn-wa" onclick="notifyWhatsApp(${item.id})">
+                  ${isNotified ? "Tekrar Mesaj At" : "WhatsApp Haber Ver"}
+                </button>
+                <button class="btn-sm btn-clear" onclick="completeBasket(${item.id})">
+                  Teslim Edildi / Boşalt
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      const historyContainer = document.getElementById("historyContainer");
+      if (history.length === 0) {
+        historyContainer.innerHTML = '<p style="font-size:13px; color:#94a3b8;">Henüz tamamlanan teslimat kaydı yok.</p>';
+      } else {
+        historyContainer.innerHTML = history.map(item => `
+          <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13px;">
+            <span><strong>Sepet #${item.sepet_no}</strong> — ${escapeHtml(item.ad_soyad)} (${escapeHtml(item.islem_turu)})</span>
+            <span style="color:#64748b;">Teslim: ${timeAgo(item.teslim_saati)}</span>
+          </div>
+        `).join("");
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      if (checkBasketConflict()) return;
+
+      const sepetNo = parseInt(document.getElementById("sepetNo").value, 10);
+      const adSoyad = document.getElementById("adSoyad").value.trim();
+      const telefon = document.getElementById("telefon").value.trim();
+      const alertBox = document.getElementById("formAlert");
+      const btn = document.getElementById("submitBtn");
+
+      btn.disabled = true;
+      btn.textContent = "Kaydediliyor...";
+
+      const { error } = await db.from("sepetler").insert([{
+        sepet_no: sepetNo,
+        ad_soyad: adSoyad,
+        telefon: telefon,
+        islem_turu: selectedProcess,
+        durum: "bekliyor"
+      }]);
+
+      btn.disabled = false;
+      btn.textContent = "Sepeti Kaydet";
+
+      if (error) {
+        alertBox.textContent = "Kayıt sırasında hata oluştu: " + error.message;
+        alertBox.className = "alert error";
+        return;
+      }
+
+      alertBox.textContent = "✅ " + sepetNo + " numaralı sepetiniz başarıyla kaydedildi! Çamaşırınız bittiğinde WhatsApp ile haber verilecektir.";
+      alertBox.className = "alert success";
+      document.getElementById("registerForm").reset();
+      selectProcess("Yıkama + Kurutma");
+      await loadRecords();
+    }
+
+    async function notifyWhatsApp(id) {
+      const item = allRecords.find(r => r.id === id);
+      if (!item) return;
+
+      const waPhone = formatPhoneForWA(item.telefon);
+      const msg = `Merhaba ${item.ad_soyad}, çamaşırhanedeki ${item.sepet_no} numaralı sepette bulunan çamaşırlarınızın (${item.islem_turu}) işlemi tamamlanmıştır. Çamaşırhaneden teslim alabilirsiniz.`;
+      const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+
+      window.open(waUrl, "_blank");
+
+      await db.from("sepetler").update({ durum: "haber_verildi" }).eq("id", id);
+      await loadRecords();
+    }
+
+    async function completeBasket(id) {
+      await db.from("sepetler").update({
+        durum: "teslim_edildi",
+        teslim_saati: new Date().toISOString()
+      }).eq("id", id);
+      await loadRecords();
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    db.channel("sepetler-takip")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sepetler" }, () => {
+        loadRecords();
+      })
+      .subscribe();
+
+    loadRecords();
+    setInterval(renderAll, 30000);
+  </script>
+</body>
+</html>
