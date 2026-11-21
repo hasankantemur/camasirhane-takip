@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yurt Çamaşırhane Sepet Takip Sistemi</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+    .topbar {
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: #2563eb; display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 16px;
+    }
+    .brand h1 { font-size: 16px; font-weight: 700; }
+    .brand p { font-size: 12px; color: #94a3b8; }
+    .nav-tabs { display: flex; gap: 8px; }
+    .tab-btn {
+      border: none; padding: 8px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: #1e293b; color: #cbd5e1; transition: 0.15s;
+    }
+    .tab-btn.active { background: #2563eb; color: #fff; }
+    .container { max-width: 780px; margin: 24px auto; padding: 0 16px; }
+    .status-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 10px 16px; margin-bottom: 18px; font-size: 13px;
+    }
+    .badge-live {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-weight: 600; color: #15803d;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+      display: inline-block;
+    }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 20px;
+    }
+    .card h2 { font-size: 18px; margin-bottom: 4px; }
+    .card .sub { font-size: 13px; color: #64748b; margin-bottom: 18px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #334155; }
+    input[type="text"], input[type="number"], input[type="tel"], input[type="password"] {
+      width: 100%; padding: 11px 13px; border: 1.5px solid #cbd5e1;
+      border-radius: 10px; font-size: 15px; outline: none; transition: 0.15s;
+    }
+    input:focus { border-color: #2563eb; }
+    .radio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .radio-card {
+      border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px;
+      cursor: pointer; text-align: center; font-weight: 600; font-size: 14px;
+      transition: 0.15s; user-select: none;
+    }
+    .radio-card.selected {
+      border-color: #2563eb; background: #eff6ff; color: #1d4ed8;
+    }
+    .btn {
+      width: 100%; padding: 13px; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.15s;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+    .alert {
+      padding: 12px 14px; border-radius: 10px; font-size: 13px;
+      font-weight: 600; margin-bottom: 14px; display: none;
+    }
+    .alert.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; display: block; }
+    .alert.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; display: block; }
+    .busy-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .pill {
+      background: #fee2e2; color: #b91c1c; font-size: 12px; font-weight: 700;
+      padding: 3px 9px; border-radius: 999px;
+    }
+    .basket-item {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;
+      margin-bottom: 12px; display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: 12px;
+      background: #fff;
+    }
+    .basket-item.notified { border-left: 4px solid #22c55e; background: #f8fafc; }
+    .basket-left { display: flex; align-items: center; gap: 12px; }
+    .basket-num {
+      min-width: 48px; height: 48px; border-radius: 12px;
+      background: #dbeafe; color: #1d4ed8; font-weight: 800; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .basket-meta h3 { font-size: 15px; font-weight: 700; }
+    .basket-meta p { font-size: 13px; color: #475569; }
+    .tag {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 6px; margin-top: 4px;
+    }
+    .tag-wait { background: #fef3c7; color: #b45309; }
+    .tag-done { background: #dcfce7; color: #15803d; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn-sm {
+      padding: 8px 12px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-wa { background: #16a34a; color: #fff; }
+    .btn-wa:hover { background: #15803d; }
+    .btn-clear { background: #e2e8f0; color: #1e293b; }
+    .btn-clear:hover { background: #cbd5e1; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">ÇT</div>
+      <div>
+        <h1>Yurt Çamaşırhane Takip</h1>
+        <p>Sepet Numarası & WhatsApp Bildirim Sistemi</p>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tabStudent" onclick="switchTab('student')">Öğrenci Kayıt (QR)</button>
+      <button class="tab-btn" id="tabStaff" onclick="switchTab('staff')">Görevli Paneli</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="status-bar">
+      <span class="badge-live"><span class="dot"></span> Canlı Bulut Senkronizasyonu Aktif</span>
+      <span id="activeCountText" style="font-weight:600; color:#475569;">Yükleniyor...</span>
+    </div>
+
+    <!-- ÖĞRENCİ KAYIT EKRANI -->
+    <div id="studentView" class="card">
+      <h2>Çamaşır Sepeti Kaydı</h2>
+      <p class="sub">Elinizdeki sepet numarasını ve iletişim bilgilerinizi girin. Çamaşırlarınız bittiğinde WhatsApp üzerinden haber verilecektir.</p>
+
+      <div id="formAlert" class="alert"></div>
+
+      <form id="registerForm" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="sepetNo">Sepet Numarası</label>
+          <input type="number" id="sepetNo" min="1" max="200" placeholder="Örn: 12" required oninput="checkBasketConflict()" />
+          <div id="conflictHint" style="font-size:12px; color:#b91c1c; font-weight:600; margin-top:4px;"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="adSoyad">Ad Soyad (veya Oda No)</label>
+          <input type="text" id="adSoyad" placeholder="Örn: Ahmet Yılmaz - B204" required />
+        </div>
+
+        <div class="form-group">
+          <label for="telefon">Telefon Numarası (WhatsApp)</label>
+          <input type="tel" id="telefon" placeholder="05XX XXX XX XX" required />
+        </div>
+
+        <div class="form-group">
+          <label>İşlem Türü</label>
+          <div class="radio-grid">
+            <div class="radio-card selected" id="optWashDry" onclick="selectProcess('Yıkama + Kurutma')">Yıkama + Kurutma</div>
+            <div class="radio-card" id="optWashOnly" onclick="selectProcess('Sadece Yıkama')">Sadece Yıkama</div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn">Sepeti Kaydet</button>
+      </form>
+
+      <div style="margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0;">
+        <span style="font-size:12px; font-weight:700; color:#64748b;">Şu An Kullanımda Olan Sepetler:</span>
+        <div id="busyBasketsList" class="busy-pills"></div>
+      </div>
+    </div>
+
+    <!-- GÖREVLİ GİRİŞ EKRANI -->
+    <div id="staffLoginView" class="card hidden">
+      <h2>Görevli Paneli Girişi</h2>
+      <p class="sub">Aktif çamaşır sepetlerini görmek ve öğrencilere WhatsApp bildirimi göndermek için ortak görevli şifresini girin.</p>
+      <div id="loginAlert" class="alert"></div>
+      <form onsubmit="handleStaffLogin(event)">
+        <div class="form-group">
+          <label for="pinInput">Görevli PIN Kodu</label>
+          <input type="password" id="pinInput" placeholder="••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Panele Gir</button>
+      </form>
+    </div>
+
+    <!-- GÖREVLİ PANELİ -->
+    <div id="staffPanelView" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h2>Aktif Sepet Listesi</h2>
+            <p class="sub" style="margin-bottom:0;">Sepet numarasına göre sıralanmıştır. Biten çamaşırlara tek tuşla mesaj atabilirsiniz.</p>
+          </div>
+          <button class="btn-sm btn-clear" onclick="logoutStaff()">Çıkış</button>
+        </div>
+        <div id="activeBasketsContainer"></div>
+      </div>
+
+      <div class="card">
+        <h2>Son Teslim Edilenler</h2>
+        <p class="sub">Boşaltılan ve sahibine teslim edilen son 15 sepet kaydı.</p>
+        <div id="historyContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // SUPABASE BAĞLANTI BİLGİLERİ
+    const SUPABASE_URL = "https://csagcrzedpmlccssgkxe.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_yW_001Ofx1eBW00xAoSpQw_fQXZD5bA";
+    const STAFF_PIN = "1234";
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let selectedProcess = "Yıkama + Kurutma";
+    let allRecords = [];
+    let isStaffLoggedIn = sessionStorage.getItem("staff_auth") === "true";
+
+    function selectProcess(val) {
+      selectedProcess = val;
+      document.getElementById("optWashDry").classList.toggle("selected", val === "Yıkama + Kurutma");
+      document.getElementById("optWashOnly").classList.toggle("selected", val === "Sadece Yıkama");
+    }
+
+    function switchTab(tab) {
+      document.getElementById("tabStudent").classList.toggle("active", tab === "student");
+      document.getElementById("tabStaff").classList.toggle("active", tab === "staff");
+
+      if (tab === "student") {
+        document.getElementById("studentView").classList.remove("hidden");
+        document.getElementById("staffLoginView").classList.add("hidden");
+        document.getElementById("staffPanelView").classList.add("hidden");
+      } else {
+        document.getElementById("studentView").classList.add("hidden");
+        if (isStaffLoggedIn) {
+          document.getElementById("staffLoginView").classList.add("hidden");
+          document.getElementById("staffPanelView").classList.remove("hidden");
+        } else {
+          document.getElementById("staffLoginView").classList.remove("hidden");
+          document.getElementById("staffPanelView").classList.add("hidden");
+        }
+      }
+    }
+
+    function handleStaffLogin(e) {
+      e.preventDefault();
+      const pin = document.getElementById("pinInput").value.trim();
+      const alertBox = document.getElementById("loginAlert");
+      if (pin === STAFF_PIN) {
+        isStaffLoggedIn = true;
+        sessionStorage.setItem("staff_auth", "true");
+        alertBox.className = "alert";
+        document.getElementById("pinInput").value = "";
+        switchTab("staff");
+      } else {
+        alertBox.textContent = "Hatalı PIN kodu girdiniz.";
+        alertBox.className = "alert error";
+      }
+    }
+
+    function logoutStaff() {
+      isStaffLoggedIn = false;
+      sessionStorage.removeItem("staff_auth");
+      switchTab("student");
+    }
+
+    function formatPhoneForWA(raw) {
+      let digits = raw.replace(/\D/g, "");
+      if (digits.startsWith("0")) digits = "90" + digits.slice(1);
+      else if (!digits.startsWith("90") && digits.length === 10) digits = "90" + digits;
+      return digits;
+    }
+
+    function timeAgo(isoStr) {
+      if (!isoStr) return "";
+      const diffMin = Math.max(0, Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000));
+      if (diffMin < 1) return "Az önce";
+      if (diffMin < 60) return diffMin + " dk önce";
+      const hrs = Math.floor(diffMin / 60);
+      const rem = diffMin % 60;
+      return hrs + " sa " + rem + " dk önce";
+    }
+
+    function getActiveBaskets() {
+      return allRecords
+        .filter(r => r.durum !== "teslim_edildi")
+        .sort((a, b) => a.sepet_no - b.sepet_no);
+    }
+
+    function checkBasketConflict() {
+      const val = parseInt(document.getElementById("sepetNo").value, 10);
+      const hint = document.getElementById("conflictHint");
+      const btn = document.getElementById("submitBtn");
+      if (!val) {
+        hint.textContent = "";
+        btn.disabled = false;
+        return false;
+      }
+      const exists = getActiveBaskets().some(b => b.sepet_no === val);
+      if (exists) {
+        hint.textContent = "⚠️ " + val + " numaralı sepet şu an aktif kullanımda görünüyor.";
+        btn.disabled = true;
+        return true;
+      }
+      hint.textContent = "";
+      btn.disabled = false;
+      return false;
+    }
+
+    async function loadRecords() {
+      const { data, error } = await db
+        .from("sepetler")
+        .select("*")
+        .order("kayit_saati", { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error("Veri çekme hatası:", error);
+        return;
+      }
+      allRecords = data || [];
+      renderAll();
+    }
+
+    function renderAll() {
+      const active = getActiveBaskets();
+      const history = allRecords.filter(r => r.durum === "teslim_edildi").slice(0, 15);
+
+      document.getElementById("activeCountText").textContent = active.length + " Aktif Sepet";
+
+      // Öğrenci ekranındaki dolu sepet rozetleri
+      const busyDiv = document.getElementById("busyBasketsList");
+      if (active.length === 0) {
+        busyDiv.innerHTML = '<span style="font-size:12px; color:#15803d;">Şu an dolu sepet yok, tüm sepetler boş.</span>';
+      } else {
+        busyDiv.innerHTML = active.map(b => `<span class="pill">Sepet #${b.sepet_no}</span>`).join("");
+      }
+
+      checkBasketConflict();
+
+      // Görevli aktif listesi
+      const activeContainer = document.getElementById("activeBasketsContainer");
+      if (active.length === 0) {
+        activeContainer.innerHTML = '<p style="font-size:14px; color:#64748b; text-align:center; padding:20px 0;">Şu an işlemde olan aktif sepet bulunmuyor.</p>';
+      } else {
+        activeContainer.innerHTML = active.map(item => {
+          const isNotified = item.durum === "haber_verildi";
+          return `
+            <div class="basket-item ${isNotified ? "notified" : ""}">
+              <div class="basket-left">
+                <div class="basket-num">#${item.sepet_no}</div>
+                <div class="basket-meta">
+                  <h3>${escapeHtml(item.ad_soyad)}</h3>
+                  <p>${escapeHtml(item.telefon)} • <strong>${escapeHtml(item.islem_turu)}</strong></p>
+                  <p style="font-size:12px; color:#64748b;">Kayıt: ${timeAgo(item.kayit_saati)}</p>
+                  <span class="tag ${isNotified ? "tag-done"
