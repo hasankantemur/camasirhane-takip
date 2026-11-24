@@ -74,7 +74,7 @@
     .search-row {
       display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
     }
-    .search-row input[type="search"] {
+    .search-row input {
       padding: 10px 13px; font-size: 14px;
     }
     .radio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -262,9 +262,9 @@
 
         <div class="search-row">
           <input
-            type="search"
+            type="text"
             id="staffSearchInput"
-            placeholder="Sepet no, ad soyad veya oda no ara (örn: 84, B204)..."
+            placeholder="Sepet no veya ad soyad ara (örn: 46, Ahmet)..."
             oninput="renderActiveBaskets()"
           />
           <button type="button" class="btn-sm btn-clear" onclick="clearStaffSearch()">Temizle</button>
@@ -436,8 +436,7 @@
         ? active.filter(item => {
             const sepetStr = String(item.sepet_no || "").toLocaleLowerCase("tr");
             const nameStr = String(item.ad_soyad || "").toLocaleLowerCase("tr");
-            const phoneStr = String(item.telefon || "").toLocaleLowerCase("tr");
-            return sepetStr.includes(query) || nameStr.includes(query) || phoneStr.includes(query);
+            return sepetStr.includes(query) || nameStr.includes(query);
           })
         : active;
 
