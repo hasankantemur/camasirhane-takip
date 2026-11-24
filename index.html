@@ -65,12 +65,18 @@
     .card .sub { font-size: 13px; color: #64748b; margin-bottom: 18px; }
     .form-group { margin-bottom: 14px; }
     label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #334155; }
-    input[type="text"], input[type="number"], input[type="tel"], input[type="password"], input[type="date"] {
+    input[type="text"], input[type="number"], input[type="tel"], input[type="password"], input[type="date"], input[type="search"] {
       width: 100%; padding: 11px 13px; border: 1.5px solid #cbd5e1;
       border-radius: 10px; font-size: 15px; outline: none; transition: 0.15s;
       background: #fff;
     }
     input:focus { border-color: #2563eb; }
+    .search-row {
+      display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
+    }
+    .search-row input[type="search"] {
+      padding: 10px 13px; font-size: 14px;
+    }
     .radio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .radio-card {
       border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px;
@@ -253,6 +259,17 @@
           </div>
           <button class="btn-sm btn-clear" onclick="logoutStaff()">Çıkış</button>
         </div>
+
+        <div class="search-row">
+          <input
+            type="search"
+            id="staffSearchInput"
+            placeholder="Sepet no, ad soyad veya oda no ara (örn: 84, B204)..."
+            oninput="renderActiveBaskets()"
+          />
+          <button type="button" class="btn-sm btn-clear" onclick="clearStaffSearch()">Temizle</button>
+        </div>
+
         <div id="activeBasketsContainer"></div>
       </div>
 
@@ -349,6 +366,7 @@
         if (isStaffLoggedIn) {
           document.getElementById("staffLoginView").classList.add("hidden");
           document.getElementById("staffPanelView").classList.remove("hidden");
+          renderActiveBaskets();
           renderDailyReport();
         } else {
           document.getElementById("staffLoginView").classList.remove("hidden");
@@ -379,6 +397,13 @@
       switchTab("student");
     }
 
+    function clearStaffSearch() {
+      const input = document.getElementById("staffSearchInput");
+      input.value = "";
+      renderActiveBaskets();
+      input.focus();
+    }
+
     function formatPhoneForWA(raw) {
       let digits = raw.replace(/\D/g, "");
       if (digits.startsWith("0")) digits = "90" + digits.slice(1);
@@ -400,6 +425,58 @@
       return allRecords
         .filter(r => r.durum !== "teslim_edildi")
         .sort((a, b) => a.sepet_no - b.sepet_no);
+    }
+
+    function renderActiveBaskets() {
+      const active = getActiveBaskets();
+      const query = (document.getElementById("staffSearchInput")?.value || "").trim().toLocaleLowerCase("tr");
+      const activeContainer = document.getElementById("activeBasketsContainer");
+
+      const filtered = query
+        ? active.filter(item => {
+            const sepetStr = String(item.sepet_no || "").toLocaleLowerCase("tr");
+            const nameStr = String(item.ad_soyad || "").toLocaleLowerCase("tr");
+            const phoneStr = String(item.telefon || "").toLocaleLowerCase("tr");
+            return sepetStr.includes(query) || nameStr.includes(query) || phoneStr.includes(query);
+          })
+        : active;
+
+      if (active.length === 0) {
+        activeContainer.innerHTML = '<p style="font-size:14px; color:#64748b; text-align:center; padding:20px 0;">Şu an işlemde olan aktif sepet bulunmuyor.</p>';
+        return;
+      }
+
+      if (filtered.length === 0) {
+        activeContainer.innerHTML = `<p style="font-size:14px; color:#64748b; text-align:center; padding:20px 0;">"<strong>${escapeHtml(query)}</strong>" aramasına uygun aktif sepet bulunamadı.</p>`;
+        return;
+      }
+
+      activeContainer.innerHTML = filtered.map(item => {
+        const isNotified = item.durum === "haber_verildi";
+        return `
+          <div class="basket-item ${isNotified ? "notified" : ""}">
+            <div class="basket-left">
+              <div class="basket-num">#${item.sepet_no}</div>
+              <div class="basket-meta">
+                <h3>${escapeHtml(item.ad_soyad)}</h3>
+                <p>${escapeHtml(item.telefon)} • <strong>${escapeHtml(item.islem_turu)}</strong></p>
+                <p style="font-size:12px; color:#64748b;">Kayıt: ${timeAgo(item.kayit_saati)}</p>
+                <span class="tag ${isNotified ? "tag-done" : "tag-wait"}">
+                  ${isNotified ? "✓ WhatsApp Bildirimi Gönderildi" : "⏳ İşlemde / Bekliyor"}
+                </span>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn-sm btn-wa" onclick="notifyWhatsApp(${item.id})">
+                ${isNotified ? "Tekrar Mesaj At" : "WhatsApp Haber Ver"}
+              </button>
+              <button class="btn-sm btn-clear" onclick="completeBasket(${item.id})">
+                Teslim Edildi / Boşalt
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     function checkBasketConflict() {
@@ -525,38 +602,7 @@
       }
 
       checkBasketConflict();
-
-      const activeContainer = document.getElementById("activeBasketsContainer");
-      if (active.length === 0) {
-        activeContainer.innerHTML = '<p style="font-size:14px; color:#64748b; text-align:center; padding:20px 0;">Şu an işlemde olan aktif sepet bulunmuyor.</p>';
-      } else {
-        activeContainer.innerHTML = active.map(item => {
-          const isNotified = item.durum === "haber_verildi";
-          return `
-            <div class="basket-item ${isNotified ? "notified" : ""}">
-              <div class="basket-left">
-                <div class="basket-num">#${item.sepet_no}</div>
-                <div class="basket-meta">
-                  <h3>${escapeHtml(item.ad_soyad)}</h3>
-                  <p>${escapeHtml(item.telefon)} • <strong>${escapeHtml(item.islem_turu)}</strong></p>
-                  <p style="font-size:12px; color:#64748b;">Kayıt: ${timeAgo(item.kayit_saati)}</p>
-                  <span class="tag ${isNotified ? "tag-done" : "tag-wait"}">
-                    ${isNotified ? "✓ WhatsApp Bildirimi Gönderildi" : "⏳ İşlemde / Bekliyor"}
-                  </span>
-                </div>
-              </div>
-              <div class="actions">
-                <button class="btn-sm btn-wa" onclick="notifyWhatsApp(${item.id})">
-                  ${isNotified ? "Tekrar Mesaj At" : "WhatsApp Haber Ver"}
-                </button>
-                <button class="btn-sm btn-clear" onclick="completeBasket(${item.id})">
-                  Teslim Edildi / Boşalt
-                </button>
-              </div>
-            </div>
-          `;
-        }).join("");
-      }
+      renderActiveBaskets();
 
       const historyContainer = document.getElementById("historyContainer");
       if (history.length === 0) {
